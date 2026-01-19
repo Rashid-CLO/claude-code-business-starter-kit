@@ -121,23 +121,48 @@ Create or update `.mcp.json` in the project root:
 
 ---
 
-### Phase 5: PERMISSIONS
+### Phase 5: PERMISSIONS (CRITICAL FOR SUBAGENTS)
 
-Ask: "Do you want Claude to use this MCP's tools without asking permission each time?"
+This step is critical because **subagents inherit permissions from settings.json**. If MCP tools aren't added to permissions, subagents won't be able to use them.
 
-**If yes**, update `.claude/settings.json`:
+After the MCP is configured, ask the user:
+
+**"Do you want Claude to use [MCP name] tools without asking permission each time? This is recommended - without this, subagents won't be able to use these tools."**
+
+**If yes (recommended):** Update `.claude/settings.json` to add the MCP tools to the allow list:
 
 ```json
 {
   "permissions": {
     "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(git:*)",
+      "Bash(npm:*)",
       "mcp__youtube__*"
     ]
   }
 }
 ```
 
-This auto-approves all tools from that MCP.
+**Pattern:** `mcp__[server-name]__*` allows all tools from that MCP.
+
+**Common patterns:**
+
+| MCP | Permission to add |
+|-----|-------------------|
+| YouTube | `mcp__youtube__*` |
+| Notion | `mcp__notion__*` |
+| GitHub | `mcp__github__*` |
+| Filesystem | `mcp__files__*` |
+
+**Why this matters:**
+- Main Claude session can use MCP tools with permission prompts
+- But subagents (spawned via Task tool) CANNOT prompt for permissions
+- If MCP tools aren't in settings.json, subagents will fail when trying to use them
+
+**If no:** Warn user that subagents won't be able to use these MCP tools.
 
 ---
 
