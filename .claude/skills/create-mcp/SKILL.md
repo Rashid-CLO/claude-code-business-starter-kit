@@ -22,65 +22,142 @@ Ask the user: **"Are you connecting to an existing MCP or building a custom one?
 
 # PATH 1: Connect Existing MCP
 
-## The 3-Phase Process
+## The 6-Phase Guided Flow
 
-### Phase 1: IDENTIFY
-Ask the user:
-- "What service do you want to connect to?" (YouTube, Notion, GitHub, etc.)
-- "Do you already have an API key or need to create one?"
+### Phase 1: DISCOVER
 
-### Phase 2: SCOPE
-Ask the user:
-- "Should this be available in all your projects, or just this one?"
-  - **User scope** → Available everywhere (personal tools)
-  - **Project scope** → Only this project, shared with team via git
-  - **Local scope** → Only this project, private to you
+**Your job: Identify what the user needs. The mcp-finder agent searches online.**
 
-### Phase 3: CONFIGURE
-- Add the MCP server using CLI or .mcp.json
-- Set up environment variables for secrets
-- Test the connection
+Ask: "What do you want Claude to be able to do?"
+
+Examples of user needs:
+- "Search YouTube videos and get transcripts"
+- "Create and update Notion pages"
+- "Manage GitHub issues and PRs"
+
+Once you understand the need, **spawn the `mcp-finder` agent** to search online (NPM, GitHub, MCP directories) for the best MCP servers.
+
+The mcp-finder agent will:
+1. Search multiple online sources
+2. Evaluate options based on functionality, maintenance, docs
+3. Return top 2-3 recommendations with comparison
+
+Present the mcp-finder's recommendations to the user.
 
 ---
 
-## Adding Existing MCP Servers
+### Phase 2: VERIFY TOOLS
 
-### Method 1: CLI (Recommended)
+Before installing, show the user what tools the MCP provides.
 
-```bash
-# HTTP transport (remote servers)
-claude mcp add --transport http <name> <url>
+Example:
+```
+The YouTube MCP provides these tools:
+- videos_searchVideos - Search for videos
+- videos_getVideo - Get video details
+- transcripts_getTranscript - Get video transcript
+- channels_getChannel - Get channel info
+- channels_listVideos - List channel videos
 
-# Stdio transport (local/npm packages)
-claude mcp add --transport stdio <name> -- <command> [args...]
-
-# With environment variables
-claude mcp add --transport stdio <name> --env API_KEY=value -- npx -y @package/name
-
-# With scope
-claude mcp add --scope project --transport http notion https://mcp.notion.com/mcp
+Does this cover what you need?
 ```
 
-**Important:** All options (`--transport`, `--env`, `--scope`) must come BEFORE the server name.
+Get user confirmation before proceeding.
 
-### Method 2: Edit .mcp.json
+---
 
-Create or edit `.mcp.json` in your project root:
+### Phase 3: GET API KEY
+
+Provide step-by-step instructions for getting the API key.
+
+**Common Services:**
+
+| Service | Where to Get Key |
+|---------|------------------|
+| YouTube | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → Create credentials → API Key → Enable YouTube Data API v3 |
+| Notion | [Notion Integrations](https://www.notion.so/my-integrations) → New integration → Copy Internal Integration Token |
+| GitHub | [GitHub Settings](https://github.com/settings/tokens) → Personal access tokens → Generate new token |
+
+Walk the user through the specific steps for their service.
+
+---
+
+### Phase 4: CONFIGURE
+
+**API keys go directly in `.mcp.json`** - no .env file needed since .mcp.json is already gitignored.
+
+Create or update `.mcp.json` in the project root:
 
 ```json
 {
   "mcpServers": {
-    "server-name": {
+    "youtube": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@package/mcp-server"],
+      "args": ["-y", "@kirbah/mcp-youtube"],
       "env": {
-        "API_KEY": "${API_KEY}"
+        "YOUTUBE_API_KEY": "AIzaSy...actual-key-here"
       }
     }
   }
 }
 ```
+
+**Windows Note:** NPX may require cmd wrapper:
+```json
+{
+  "youtube": {
+    "type": "stdio",
+    "command": "cmd",
+    "args": ["/c", "npx", "-y", "@kirbah/mcp-youtube"],
+    "env": {
+      "YOUTUBE_API_KEY": "AIzaSy...actual-key-here"
+    }
+  }
+}
+```
+
+**Tell user:** "Reload VS Code (Ctrl+Shift+P → 'Reload Window') to connect the MCP."
+
+---
+
+### Phase 5: PERMISSIONS
+
+Ask: "Do you want Claude to use this MCP's tools without asking permission each time?"
+
+**If yes**, update `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__youtube__*"
+    ]
+  }
+}
+```
+
+This auto-approves all tools from that MCP.
+
+---
+
+### Phase 6: TEST
+
+1. **Verify connection:**
+   ```bash
+   claude mcp list
+   ```
+   Should show the MCP as connected.
+
+2. **Test a tool:**
+   Ask Claude to use one of the MCP's tools:
+   - "Search YouTube for videos about Claude Code"
+   - "Get my Notion databases"
+
+3. **Troubleshoot if needed:**
+   - If not connected, check `.mcp.json` syntax
+   - If tools fail, verify API key is correct
+   - Check logs: `~/Library/Logs/Claude/mcp*.log` (Mac)
 
 ---
 
@@ -95,10 +172,10 @@ Create or edit `.mcp.json` in your project root:
       "command": "node|npx|python|uv",
       "args": ["arg1", "arg2"],
       "env": {
-        "VAR_NAME": "${ENV_VAR}"
+        "VAR_NAME": "value"
       },
       "headers": {
-        "Authorization": "Bearer ${TOKEN}"
+        "Authorization": "Bearer token"
       }
     }
   }
@@ -129,7 +206,7 @@ For cloud-hosted MCP servers:
     "type": "http",
     "url": "https://mcp.notion.com/mcp",
     "headers": {
-      "Authorization": "Bearer ${NOTION_TOKEN}"
+      "Authorization": "Bearer ntn_...your-token"
     }
   }
 }
@@ -143,22 +220,9 @@ For npm packages or local scripts:
   "youtube": {
     "type": "stdio",
     "command": "npx",
-    "args": ["-y", "@anthropic/youtube-mcp"],
+    "args": ["-y", "@kirbah/mcp-youtube"],
     "env": {
-      "YOUTUBE_API_KEY": "${YOUTUBE_API_KEY}"
-    }
-  }
-}
-```
-
-**Windows Note:** NPX requires cmd wrapper:
-```json
-{
-  "notion": {
-    "command": "cmd",
-    "args": ["/c", "npx", "-y", "@notionhq/notion-mcp-server"],
-    "env": {
-      "NOTION_TOKEN": "${NOTION_TOKEN}"
+      "YOUTUBE_API_KEY": "AIzaSy...your-key"
     }
   }
 }
@@ -174,8 +238,10 @@ For npm packages or local scripts:
   "youtube": {
     "type": "stdio",
     "command": "npx",
-    "args": ["-y", "@anthropic/youtube-mcp"],
-    "env": { "YOUTUBE_API_KEY": "${YOUTUBE_API_KEY}" }
+    "args": ["-y", "@kirbah/mcp-youtube"],
+    "env": {
+      "YOUTUBE_API_KEY": "your-api-key"
+    }
   }
 }
 ```
@@ -187,7 +253,9 @@ For npm packages or local scripts:
     "type": "stdio",
     "command": "npx",
     "args": ["-y", "@notionhq/notion-mcp-server"],
-    "env": { "NOTION_TOKEN": "${NOTION_TOKEN}" }
+    "env": {
+      "NOTION_TOKEN": "your-integration-token"
+    }
   }
 }
 ```
@@ -213,87 +281,6 @@ claude mcp add --transport stdio files -- npx -y @modelcontextprotocol/server-fi
 | **local** | `~/.claude.json` (project path) | Only you, this project | Private/sensitive |
 
 **Precedence:** Local > Project > User
-
----
-
-## Environment Variables & API Keys
-
-### Never Hardcode Secrets!
-
-```json
-// BAD - secrets exposed in git
-"env": { "API_KEY": "sk-abc123..." }
-
-// GOOD - uses environment variable
-"env": { "API_KEY": "${API_KEY}" }
-```
-
-### Secure API Key Storage (Recommended)
-
-Store API keys in a `.env` file that's git-ignored. Use `dotenv-cli` to load them automatically.
-
-**Step 1: Create .env file**
-```
-YOUTUBE_API_KEY=your_youtube_api_key_here
-NOTION_API_KEY=your_notion_integration_token_here
-```
-
-**Step 2: Ensure .gitignore includes .env**
-```
-# Add to .gitignore
-.env
-```
-
-**Step 3: Configure .mcp.json to use dotenv-cli**
-
-Use `dotenv-cli` to load `.env` before running the MCP server:
-
-```json
-{
-  "mcpServers": {
-    "youtube": {
-      "command": "npx",
-      "args": ["-y", "dotenv-cli", "-e", ".env", "--", "npx", "-y", "@anthropic/youtube-mcp"],
-      "env": {}
-    }
-  }
-}
-```
-
-This pattern:
-1. Runs `dotenv-cli` which loads `.env` into the environment
-2. Then runs the actual MCP server with those env vars available
-3. No system environment variables needed!
-
-### Quick Setup Flow
-
-When user provides an API key:
-
-1. **Check if .env exists** - Create if not
-2. **Add key to .env** - Append the key
-3. **Check .gitignore** - Ensure .env is ignored
-4. **Update .mcp.json** - Use dotenv-cli wrapper pattern
-5. **Tell user to reload** - Restart VS Code or reload window
-
-Example interaction:
-```
-User: "Here's my YouTube API key: AIzaSy..."
-
-Claude:
-1. Creates/updates .env with YOUTUBE_API_KEY=AIzaSy...
-2. Verifies .gitignore has .env
-3. Updates .mcp.json to use dotenv-cli wrapper
-4. Says: "Done! Reload VS Code window (Ctrl+Shift+P → Reload Window)
-   to connect the YouTube MCP."
-```
-
-### Where to Get API Keys
-
-| Service | Where to Get Key |
-|---------|------------------|
-| YouTube | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → Create credentials → API Key → Enable YouTube Data API v3 |
-| Notion | [Notion Integrations](https://www.notion.so/my-integrations) → New integration → Copy token |
-| GitHub | [GitHub Settings](https://github.com/settings/tokens) → Personal access tokens |
 
 ---
 
@@ -533,7 +520,7 @@ server.registerTool(
       "command": "uv",
       "args": ["--directory", "/absolute/path/to/my-mcp-server", "run", "server.py"],
       "env": {
-        "API_KEY": "${MY_API_KEY}"
+        "API_KEY": "your-api-key"
       }
     }
   }
@@ -549,7 +536,7 @@ server.registerTool(
       "command": "node",
       "args": ["/absolute/path/to/my-mcp-server/dist/index.js"],
       "env": {
-        "API_KEY": "${MY_API_KEY}"
+        "API_KEY": "your-api-key"
       }
     }
   }
@@ -616,18 +603,22 @@ my-mcp-server/
 | Server not connected | Invalid path | Use absolute paths |
 | No tools available | Server crashed | Check stderr/logs |
 | Tool returns error | Implementation bug | Debug your code |
-| ${VAR} not expanding | Env var not set | Set before running Claude |
+| MCP not loading | Wrong working directory | Open project folder directly in VS Code |
 
 ---
 
 ## Creation Checklist
 
 ### Connecting Existing MCP:
-- [ ] Correct transport type (http vs stdio)
-- [ ] Environment variables use `${VAR}` syntax
-- [ ] Secrets NOT hardcoded
-- [ ] Windows: npx uses `cmd /c` wrapper
+- [ ] Spawned mcp-finder to find best option
+- [ ] Verified tools match user needs
+- [ ] Got API key with step-by-step guidance
+- [ ] Added to .mcp.json with key directly in config
+- [ ] Windows: npx uses `cmd /c` wrapper if needed
+- [ ] User reloaded VS Code
+- [ ] Set up permissions in settings.json (optional)
 - [ ] Tested with `claude mcp list`
+- [ ] Tested a tool to confirm working
 
 ### Building Custom MCP:
 - [ ] Tools have clear descriptions
@@ -639,6 +630,6 @@ my-mcp-server/
 
 ---
 
-**Connecting:** `.mcp.json` + `claude mcp add`
+**Connecting:** `.mcp.json` + 6-phase guided flow
 **Building:** Python (`mcp[cli]`) or TypeScript (`@modelcontextprotocol/sdk`)
 **Testing:** `claude mcp list` + try tools in chat

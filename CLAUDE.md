@@ -4,6 +4,19 @@ Your AI Employee infrastructure. Build AI systems that do real work in your busi
 
 ---
 
+## IMPORTANT: Working Directory
+
+**You MUST open THIS folder directly in VS Code.**
+
+If you cloned this repo into a subfolder, make sure VS Code opens the folder containing this `CLAUDE.md` file at the root - NOT a parent folder.
+
+**Correct:** VS Code opens `claude-code-business-starter-kit/`
+**Wrong:** VS Code opens a parent folder that contains `claude-code-business-starter-kit/`
+
+If skills, MCPs, or agents aren't working, this is usually why.
+
+---
+
 ## Routing
 
 | When you want to... | Load skill |
@@ -13,6 +26,7 @@ Your AI Employee infrastructure. Build AI systems that do real work in your busi
 | Create a new agent | `create-agent` |
 | Create a new hook | `create-hook` |
 | Add or build an MCP | `create-mcp` |
+| Search online for MCP servers | `mcp-finder` agent (spawned by create-mcp) |
 
 ---
 

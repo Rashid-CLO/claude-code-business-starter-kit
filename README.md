@@ -34,6 +34,8 @@ Click the green **"Use this template"** button above to create your own copy.
 - Choose a folder to save it
 - Click **"Open"** when prompted
 
+> **Important:** When VS Code asks "Would you like to open the cloned repository?" - click **Yes**. You must open the cloned folder directly, not a parent folder. If Claude can't find your skills or MCPs, this is usually why.
+
 ### 4. Start Building
 
 Open the Claude Code panel in VS Code and try:
